@@ -71,18 +71,39 @@ usage() ->
     halt(1).
 
 call_edoc(FileSpec, InclFs, Dir) ->
-    ReadOpts = [{includes, InclFs}, {preprocess, true}],
+    Macros0 = [{default_verbosity, silence},
+              {version, "25.1.2"},
+              {'VSN', "25.1.2"},
+              {'COMPILER_VSN', "25.1.2"},
+              {'ENABLE_MEGACO_FLEX_SCANNER', false},
+              {'MEGACO_REENTRANT_FLEX_SCANNER', false}],
+    ExcludeList = [
+        {"lib/kernel/src/global.erl", 'VSN'},
+        {"lib/kernel/src/dist_ac.erl", 'VSN'},
+        {"lib/kernel/src/group_history.erl", 'VSN'},
+        {"lib/tools/src/lcnt.erl", version},
+        {"lib/common_test/src/ct_run.erl", default_verbosity},
+        {"lib/common_test/src/ct_util.erl", default_verbosity}
+    ],
+    ReadOpts0 = [{includes, InclFs}, {preprocess, true}],
     ExtractOpts = [{report_missing_type, false}],
     LayoutOpts = [{pretty_printer, erl_pp}, {layout, docgen_otp_specs}],
     File = case FileSpec of
                {file, File0} -> File0;
                {module, Module0} -> Module0
            end,
+    Macros =
+    case check_skip_macros(ExcludeList, File) of
+        {true, Key} -> lists:keydelete(Key, 1, Macros0);
+        _ -> Macros0
+    end,
+    ReadOpts = [{macros, Macros} | ReadOpts0],
     try
         Fs = case FileSpec of
                  {file, _} ->
-                     Fs0 = read_file(File, ReadOpts),
-                     clauses(Fs0);
+                    %  Fs0 = read_file(File, ReadOpts),
+                    %  clauses(Fs0);
+                     read_file(File, ReadOpts);
                  {module, Module} ->
                      [{attribute,0,module,list_to_atom(Module)}]
              end,
@@ -91,11 +112,21 @@ call_edoc(FileSpec, InclFs, Dir) ->
         ok = write_text(Text, File, Dir),
         rename(Dir, File)
     catch
-        _:_ ->
+        _:_:Stack ->
+            io:format("stacktrace: ~p\n", [Stack]),
             io:format("EDoc could not process file '~s'\n", [File]),
             clean_up(Dir),
             throw({?MODULE, "EDoc could not process file", File}),
             halt(3)
+    end.
+
+check_skip_macros([], _File) -> false;
+check_skip_macros([{Suffix, Key} | Tail], File) ->
+    case lists:suffix(Suffix, File) of
+        true ->
+            {true, Key};
+        false ->
+            check_skip_macros(Tail, File)
     end.
 
 read_file(File, Opts) ->

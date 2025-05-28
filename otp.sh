@@ -18,8 +18,8 @@ erldocs="${ERLDOCS:-./erldocs}"
 mkdir -p  "$odir"
 rm    -rf "$odir"/*
 
-[[ ! -f "$idir"/lib/xmerl/doc/src/xmerl.xml ]] && \
-    echo "Please: cd '$idir'; ./configure && make && make docs; cd -" && exit 3
+#[[ ! -f "$idir"/lib/xmerl/doc/src/xmerl.xml ]] && \
+#    echo "Please: cd '$idir'; ./configure && make && make docs; cd -" && exit 3
 
 "$erldocs"          \
     -o "$odir"      \

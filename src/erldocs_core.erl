@@ -71,7 +71,8 @@ find_erlang_module (AppDir) ->
 -spec build (list()) -> boolean().
 build (Conf) ->
     mkdir_p(kf(dest, Conf)),
-    AppDirs = [Path || Path <- kf(apps,Conf), filelib:is_dir(Path)],
+    AppDirs0 = [Path || Path <- kf(apps,Conf), filelib:is_dir(Path)],
+    AppDirs = [Path || Path <- AppDirs0, filename:basename(Path) /= "diameter"],
     IncludePaths = lists:usort(lists:flatmap(fun includes/1, AppDirs)),
 
     BuildApps = fun (AppDir) -> build_apps(Conf, IncludePaths, app_name(AppDir), AppDir) end,
@@ -448,7 +449,7 @@ fun_stuff (App, Mod, {func, [], Children}) ->
               {"fun", App, Mod++":"++Name++"/"++Arity, Summary};
           {name, [{name,Name}, {arity,Arity}, {since,_}], []} ->
               {"fun", App, Mod++":"++Name++"/"++Arity, Summary};
-          {name, [{name,Name}, {arity,Arity}, {clause_i,"1"}], []} ->
+          {name, [{name,Name}, {arity,Arity}, {clause_i,"1"} | _], []} ->
               {"fun", App, Mod++":"++Name++"/"++Arity, Summary};
           _Else ->
               ignore
@@ -515,7 +516,12 @@ tr_erlref ({v, [], []}, _Acc) ->
     {li, [], [" "]};
 tr_erlref ({v, [], Child}, _Acc) ->
     {li, [], [{code, [], Child}]};
-tr_erlref ({seealso, [{marker, Marker}], Child}, _Acc) ->
+tr_erlref ({seetype, [{marker, Marker}], Child}, _Acc) ->
+    Re = "^http://www.erlang.org/edoc/doc/([^/]+)/doc/([^.]+).html(.*)$",
+    Marker1 = re:replace(Marker, Re, "\\1:\\2\\3", [{return, list}]),
+    Marker2 = re:replace(Marker1, "#([^#]+)$", "#type-\\1", [{return, list}]),
+    tr_erlref ({seeerl, [{marker, Marker2}], Child}, _Acc);
+tr_erlref ({Name, [{marker, Marker}], Child}, _Acc) when Name == seeerl; Name == seemfa ->
     case string:tokens(Marker, ":") of
         []        -> Url = 'add .html'(lists:flatten(Child));
         [Tmp]     -> Url = 'add .html'(Tmp);
@@ -587,6 +593,8 @@ tr_erlref ({item, [], Child}, [_Ids, {list, ul}, _Funs]) ->
     {li, [], Child};
 tr_erlref ({list, _Type, Child}, [Ids, _List, Funs]) ->
     { {ul, [], Child}, [Ids, {list, ul}, Funs] };
+tr_erlref ({code, [], Child}, _Acc) ->
+    {pre, [{class, "sh_erlang"}], Child};
 tr_erlref ({code, [{type, "none"}], Child}, _Acc) ->
     {pre, [{class, "sh_erlang"}], Child};
 tr_erlref ({pre, [], Child}, _Acc) ->
@@ -612,10 +620,10 @@ tr_erlref (E={type, [{name,TName}], []}, Acc) ->
                         }
     end;
 
-tr_erlref ({name, [{name,Name}, {arity,N}, {clause_i,ClauseI}], []}, Acc)
+tr_erlref ({name, [{name,Name}, {arity,N}, {clause_i,ClauseI} | _], []}, Acc)
   when ClauseI =:= "1" ->
     tr_erlref({name, [{name,Name}, {arity,N}], []}, Acc);
-tr_erlref ({name, [{name,____}, {arity,_}, {clause_i,ClauseI}], []}, ___)
+tr_erlref ({name, [{name,____}, {arity,_}, {clause_i,ClauseI} | _], []}, ___)
   when ClauseI  >  "1" ->
     ignore;
 tr_erlref ({name, [{name,Name}, {arity,N}, {since,_}], []}, Acc) ->
@@ -828,7 +836,10 @@ read_xml (XmlFile) ->
            , {encoding, "latin1"}
            , {rules, ?ERLDOCS_XMERL_ETS_TABLE}
            ],
-    try xmerl_scan:file(XmlFile, Opts) of
+    {ok, Binary} = file:read_file(XmlFile),
+    FixedBinary = re:replace(Binary, <<"&nbsp;">>, <<" ">>, [global, {return, list}]),
+    % try xmerl_scan:file(XmlFile, Opts) of
+    try xmerl_scan:string(FixedBinary, Opts) of
         {Xml, _Rest} ->
             xmerl_lib:simplify_element(Xml);
         Error ->
