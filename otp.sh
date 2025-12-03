@@ -25,6 +25,7 @@ rm    -rf "$odir"/*
     -o "$odir"      \
     "$idir"/lib/*   \
     "$idir"/erts*   \
+    --otp_release "$release"  \
     | tee _"$release"
 
 rm -rf "$odir"/.xml

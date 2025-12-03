@@ -2,3 +2,6 @@
 _build
 /test/otp_ref
 /test/otp_rel
+docs-*
+_25.1.2
+erlang_ls.config

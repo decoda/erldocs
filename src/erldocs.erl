@@ -54,6 +54,10 @@ parse (["--base", Base | Rest], Conf) ->
 parse (["--ga", GA | Rest], Conf) ->
     parse(Rest, Conf#conf{ga = GA});
 
+parse (["--otp_release", OtpRelease | Rest], Conf) ->
+    os:putenv("OTP_RELEASE", OtpRelease),
+    parse(Rest, Conf);
+
 parse ([Dir0 | Rest], #conf{dirs = Dirs} = Conf) ->
     case Dir0 of
         "." -> Dir = cwd();

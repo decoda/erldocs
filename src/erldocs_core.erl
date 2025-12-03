@@ -72,7 +72,7 @@ find_erlang_module (AppDir) ->
 build (Conf) ->
     mkdir_p(kf(dest, Conf)),
     AppDirs0 = [Path || Path <- kf(apps,Conf), filelib:is_dir(Path)],
-    AppDirs = [Path || Path <- AppDirs0, filename:basename(Path) /= "diameter"],
+    AppDirs = [Path || Path <- AppDirs0, not is_ignored_app(filename:basename(Path))],
     IncludePaths = lists:usort(lists:flatmap(fun includes/1, AppDirs)),
 
     BuildApps = fun (AppDir) -> build_apps(Conf, IncludePaths, app_name(AppDir), AppDir) end,
@@ -882,6 +882,9 @@ is_ignored ("kernel", "zlib") -> true;
 is_ignored ("kernel", "erlang") -> true;
 is_ignored ("kernel", "erl_prim_loader") -> true;
 is_ignored (_AppName, _Module) -> false.
+
+is_ignored_app ("diameter") -> true;
+is_ignored_app (_AppName) -> false.
 
 -type map_fun(D, R) :: fun((D) -> R).
 -type reduce_fun(T) :: fun((T, _) -> _).

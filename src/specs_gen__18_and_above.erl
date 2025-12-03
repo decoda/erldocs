@@ -71,10 +71,14 @@ usage() ->
     halt(1).
 
 call_edoc(FileSpec, InclFs, Dir) ->
+    OtpRelease = case os:getenv("OTP_RELEASE") of
+        false -> erlang:system_info(otp_release);
+        Val -> Val
+    end,
     Macros0 = [{default_verbosity, silence},
-              {version, "25.1.2"},
-              {'VSN', "25.1.2"},
-              {'COMPILER_VSN', "25.1.2"},
+              {version, OtpRelease},
+              {'VSN', OtpRelease},
+              {'COMPILER_VSN', OtpRelease},
               {'ENABLE_MEGACO_FLEX_SCANNER', false},
               {'MEGACO_REENTRANT_FLEX_SCANNER', false}],
     ExcludeList = [
@@ -136,27 +140,6 @@ extract(File, Forms, Opts) ->
     Env = edoc_lib:get_doc_env([], [], _Opts=[]),
     {_Module, Doc} = edoc_extract:source(Forms, File, Env, Opts),
     Doc.
-
-clauses(Fs) ->
-    clauses(Fs, no).
-
-clauses([], no) ->
-    [];
-clauses([F | Fs], Spec) ->
-    case F of
-        {attribute,_,spec,_} ->
-            clauses(Fs, F);
-        {function,_,_N,_A,_Cls} when Spec =/= no->
-            {attribute,_,spec,{Name,FunTypes}} = Spec,
-            %% [throw({no,Name,{_N,_A}}) || Name =/= {_N,_A}],
-            %% EDoc doesn't care if a function appears more than once;
-            %% this is how overloaded specs are handled:
-            (lists:append([[setelement(4, Spec, {Name,[T]}),F] ||
-                              T <- FunTypes])
-             ++ clauses(Fs, no));
-        _ ->
-            [F | clauses(Fs, Spec)]
-    end.
 
 write_text(Text, File, Dir) ->
     Base = filename:basename(File, ".erl"),
