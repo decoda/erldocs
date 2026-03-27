@@ -19,7 +19,7 @@
 -spec main (_) -> boolean().
 main (Args=[_|_]) ->
     PropList = parse(Args, #conf{}),
-    erldocs_core:dispatch(PropList);
+    erldocs_build:dispatch(PropList);
 main (_) ->
     ok = io:setopts([{encoding, unicode}]),
     Arg0 = escript:script_name(),

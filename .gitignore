@@ -2,3 +2,8 @@
 _build
 /test/otp_ref
 /test/otp_rel
+/otp_src_*
+/docs-*
+AGENTS.md
+erl_crash.dump
+_28.3

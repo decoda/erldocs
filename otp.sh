@@ -18,8 +18,13 @@ erldocs="${ERLDOCS:-./erldocs}"
 mkdir -p  "$odir"
 rm    -rf "$odir"/*
 
-[[ ! -f "$idir"/lib/xmerl/doc/src/xmerl.xml ]] && \
-    echo "Please: cd '$idir'; ./configure && make && make docs; cd -" && exit 3
+has_legacy_docs="$idir/lib/xmerl/doc/src/xmerl.xml"
+has_html_docs="$idir/lib/xmerl/doc/html/index.html"
+
+if [[ ! -f "$has_legacy_docs" && ! -f "$has_html_docs" ]]; then
+    echo "Please: cd '$idir'; ./configure && make && make docs; cd -"
+    exit 3
+fi
 
 "$erldocs"          \
     -o "$odir"      \
@@ -28,6 +33,6 @@ rm    -rf "$odir"/*
     | tee _"$release"
 
 rm -rf "$odir"/.xml
-tar jcf "$odir".tar.bz2 "$odir"
+# tar jcf "$odir".tar.bz2 "$odir"
 
 shift && [[ "$1" = '' ]] && exit 0 || $0 $*

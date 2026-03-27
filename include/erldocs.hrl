@@ -8,4 +8,35 @@
 %% The directory in which erldocs puts its specs_*.xml
 -define(ERLDOCS_SPECS_TMP, ".xml").
 
+-record(module_doc, { app
+                    , module
+                    , source_kind = legacy_xml
+                    , render_mode = fragment
+                    , summary = ""
+                    , blocks = []
+                    , functions = []
+                    , types = []
+                    , metadata = []
+                    }).
+
+-record(function_doc, { name
+                      , arity = 0
+                      , id = ""
+                      , summary = ""
+                      , heading = ""
+                      , blocks = []
+                      , signature = []
+                      , metadata = []
+                      }).
+
+-record(type_doc, { name
+                  , arity = 0
+                  , id = ""
+                  , heading = ""
+                  , blocks = []
+                  , signature = []
+                  , opaque = false
+                  , metadata = []
+                  }).
+
 %% End of File.

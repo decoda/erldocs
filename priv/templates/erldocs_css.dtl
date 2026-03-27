@@ -229,30 +229,95 @@ h3 + .type_desc {
     margin-left : 10px;
 }
 
-.note {
+div.note, section.note, .admonition.note {
     border     : 1px solid #E1E4EA;
     padding    : 10px;
     margin     : 10px 8%;
     background : #EFF3F8;
 }
 
-.note h2 {
+div.note h2, section.note h2, .admonition.note h2,
+.admonition.note .admonition-title {
     font-size   : 14px;
     font-weight : bold;
     display     : inline;
 }
 
-.warning {
+div.warning, section.warning, .admonition.warning {
     border     : 1px solid #E8DFDF;
     padding    : 10px;
     margin     : 10px 8%;
     background : #FBF4E9;
 }
 
-.warning h2 {
+div.warning h2, section.warning h2, .admonition.warning h2,
+.admonition.warning .admonition-title {
     font-size   : 14px;
     font-weight : bold;
     display     : inline;
+}
+
+.detail {
+    margin : 25px 0px;
+}
+
+.detail-header {
+    margin-bottom : 10px;
+}
+
+.heading-with-actions {
+    display     : inline-block;
+    width       : 100%;
+    line-height : 1.4;
+}
+
+.signature {
+    margin      : 5px 0px;
+    font-size   : 14px;
+    font-weight : bold;
+    color       : #000;
+}
+
+.detail .docstring p {
+    padding-left : 10px;
+}
+
+.detail .docstring ul {
+    list-style-type : none;
+    padding-left    : 10px;
+}
+
+.detail .docstring li {
+    margin : 6px 0px;
+}
+
+.detail-header .note {
+    display        : inline;
+    margin-left    : 8px;
+    padding        : 0;
+    border         : 0;
+    background     : transparent;
+    color          : #666;
+    font-size      : 11px;
+    font-style     : italic;
+}
+
+.section-heading {
+    margin-top  : 16px;
+    font-size   : 14px;
+    font-weight : bold;
+}
+
+.section-heading .hover-link {
+    display         : none;
+    text-decoration : none;
+}
+
+.detail-header .icon-action,
+.top-heading .icon-action {
+    float           : right;
+    text-decoration : none;
+    color           : #666;
 }
 
 #sidebar {
