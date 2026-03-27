@@ -98,6 +98,80 @@ pre {
     overflow    : auto;
 }
 
+pre code.makeup.erlang {
+    display      : block;
+    color        : #111;
+    white-space  : pre;
+    font-family  : "Courier New","Andale Mono",monospace;
+    font-size    : 13px;
+    line-height  : normal;
+}
+
+pre code.makeup.erlang .gp,
+pre code.makeup.erlang .gt {
+    color : #999;
+    font-style : normal;
+}
+
+pre code.makeup.erlang .k,
+pre code.makeup.erlang .kr {
+    color       : blue;
+    font-weight : bold;
+}
+
+pre code.makeup.erlang .nf,
+pre code.makeup.erlang .nn {
+    color       : #32656A;
+    font-weight : bold;
+}
+
+pre code.makeup.erlang .p,
+pre code.makeup.erlang .o {
+    color : darkred;
+}
+
+pre code.makeup.erlang .nc,
+pre code.makeup.erlang .na,
+pre code.makeup.erlang .nb {
+    color : darkblue;
+}
+
+pre code.makeup.erlang .n,
+pre code.makeup.erlang .no {
+    color : #2f6f3e;
+}
+
+pre code.makeup.erlang .s,
+pre code.makeup.erlang .si,
+pre code.makeup.erlang .sc {
+    color : red;
+    font-family : monospace;
+}
+
+pre code.makeup.erlang .mi,
+pre code.makeup.erlang .mf {
+    color : purple;
+}
+
+pre code.makeup.erlang .ss,
+pre code.makeup.erlang .attribute {
+    color : teal;
+}
+
+pre code.makeup.erlang .c1 {
+    color      : brown;
+    font-style : italic;
+}
+
+pre code.makeup.erlang .w,
+pre code.makeup.erlang .unselectable {
+    color : inherit;
+}
+
+pre code.makeup.erlang a {
+    color : inherit;
+}
+
 td {
     padding : 5px;
 }

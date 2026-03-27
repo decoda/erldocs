@@ -120,18 +120,36 @@ detail_id (Chunk) ->
         nomatch -> ""
     end.
 
-detail_heading (Mod, function, Chunk) ->
-    case {multi_clause_spec(detail_spec_html(Chunk)), detail_signature_heading(Chunk)} of
-        {true, Heading} when Heading =/= [] ->
-            maybe_prefix_module(Mod, Heading);
-        _ ->
-            case function_spec_parts(detail_spec_html(Chunk)) of
-                {Header, _Args} when Header =/= [] ->
-                    maybe_prefix_module(Mod, Header);
-                _ ->
-                    case detail_signature_heading(Chunk) of
+detail_heading (_Mod, function, Chunk) ->
+    SpecHtml = detail_spec_html(Chunk),
+    SignatureHeading = detail_signature_heading(Chunk),
+    case multi_clause_spec(SpecHtml) of
+        true ->
+            case simple_arity_heading(SignatureHeading) of
+                true ->
+                    case function_spec_parts(first_clause_spec(SpecHtml)) of
+                        {Header, _Args} when Header =/= [] ->
+                            cleanup_function_heading(Header);
+                        _ ->
+                            case SignatureHeading of
+                                [] -> detail_id(Chunk);
+                                _ -> cleanup_function_heading(SignatureHeading)
+                            end
+                    end;
+                false ->
+                    case SignatureHeading of
                         [] -> detail_id(Chunk);
-                        Heading -> maybe_prefix_module(Mod, Heading)
+                        _ -> cleanup_function_heading(SignatureHeading)
+                    end
+            end;
+        false ->
+            case function_spec_parts(SpecHtml) of
+                {Header, _Args} when Header =/= [] ->
+                    cleanup_function_heading(Header);
+                _ ->
+                    case SignatureHeading of
+                        [] -> detail_id(Chunk);
+                        Heading -> cleanup_function_heading(Heading)
                     end
             end
     end;
@@ -148,44 +166,69 @@ detail_heading (_Mod, type, Chunk) ->
     end.
 
 detail_type_desc (function, Chunk) ->
-    case multi_clause_spec(detail_spec_html(Chunk)) of
-        true ->
+    SpecHtml = detail_spec_html(Chunk),
+    case {multi_clause_spec(SpecHtml), simple_arity_heading(detail_signature_heading(Chunk))} of
+        {true, false} ->
             [];
-        false ->
-            case function_spec_parts(detail_spec_html(Chunk)) of
+        {true, true} ->
+            case function_spec_parts(first_clause_spec(SpecHtml)) of
                 {_Header, []} ->
                     [];
                 {Header, Args} ->
-                    FilteredArgs = filter_function_args(Header, Args),
-                    ReturnArgs = function_return_args(Header, Args),
-                    DisplayArgs0 = FilteredArgs ++ ReturnArgs,
-                    DisplayArgs = expand_type_desc_args(DisplayArgs0, Args),
-                    case DisplayArgs of
-                        [] ->
-                            [];
-                        _ ->
-                            RenderArgs = normalize_type_desc_args(DisplayArgs),
-                            [ "<ul class=\"type_desc\">"
-                            , [[ "<li><code>", legacy_type_desc(Arg), "</code></li>" ] || Arg <- RenderArgs]
-                            , "</ul>\n"
-                            ]
-                    end
+                    render_function_type_desc(Header, Args)
+            end;
+        {false, _} ->
+            case function_spec_parts(SpecHtml) of
+                {_Header, []} ->
+                    [];
+                {Header, Args} ->
+                    render_function_type_desc(Header, Args)
             end
     end;
 detail_type_desc (type, _Chunk) ->
     [].
-
-maybe_prefix_module (Mod, Heading) ->
-    case string:find(strip_tags(Heading), ":") of
-        nomatch -> Mod ++ ":" ++ Heading;
-        _ -> Heading
-    end.
 
 detail_signature_heading (Chunk) ->
     case re:run(Chunk, "<h1 class=\"signature\"[^>]*>(.*?)</h1>",
                 [dotall, ungreedy, {capture, [1], list}]) of
         {match, [HeadingHtml]} -> strip_tags(HeadingHtml);
         nomatch -> []
+            end.
+
+cleanup_function_heading (Heading) ->
+    case re:run(Heading, "^(.*?)\\s*->\\s*(.*)$",
+                [dotall, ungreedy, {capture, [1,2], list}]) of
+        {match, [Prefix, Return0]} ->
+            Prefix1 = string:trim(Prefix),
+            Return1 = string:trim(Return0),
+            Prefix1 ++ " -> " ++ iolists_to_string(pretty_type_segment(Return1));
+        nomatch ->
+            string:trim(Heading)
+    end.
+
+simple_arity_heading (Heading) ->
+    case re:run(Heading, "^[a-zA-Z_][a-zA-Z0-9_]*\\/\\d+$", [{capture, none}]) of
+        match -> true;
+        nomatch -> false
+    end.
+
+first_clause_spec (SpecHtml) ->
+    hd(string:split(SpecHtml, ";", leading)).
+
+render_function_type_desc (Header, Args) ->
+    FilteredArgs = filter_function_args(Header, Args),
+    ReturnArgs = function_return_args(Header, Args),
+    DisplayArgs0 = FilteredArgs ++ ReturnArgs,
+    DisplayArgs = expand_type_desc_args(DisplayArgs0, Args),
+    case DisplayArgs of
+        [] ->
+            [];
+        _ ->
+            RenderArgs = normalize_type_desc_args(DisplayArgs),
+            [ "<ul class=\"type_desc\">"
+            , [[ "<li><code>", legacy_type_desc(Arg), "</code></li>" ] || Arg <- RenderArgs]
+            , "</ul>\n"
+            ]
     end.
 
 legacy_type_desc (Arg) ->
@@ -199,7 +242,8 @@ legacy_type_desc (Arg) ->
                       "integer() >= 0",
                       [{return, list}]),
     Arg4 = re:replace(Arg3, "pos_integer\\(\\)", "integer() >= 1", [{return, list}]),
-    re:replace(Arg4, "non_neg_integer\\(\\)", "integer() >= 0", [{return, list}]).
+    Arg5 = re:replace(Arg4, "non_neg_integer\\(\\)", "integer() >= 0", [{return, list}]),
+    format_map_type_desc(Arg5).
 
 replace_top_level_type_separator (Arg) ->
     case re:run(Arg,
@@ -461,14 +505,30 @@ referenced_type_vars (Arg, KnownNames) ->
 type_spec_heading ([]) ->
     [];
 type_spec_heading (SpecHtml) ->
-    case split_once(SpecHtml, " :: ") of
+    Normalized = normalize_type_spec_html(SpecHtml),
+    case split_once(Normalized, " :: ") of
         {Name, Rest} ->
-            string:trim(Name) ++ " = " ++ string:trim(Rest);
+            format_type_heading(string:trim(Name), string:trim(Rest));
         false ->
-            string:trim(SpecHtml)
+            string:trim(Normalized)
     end.
 
 cleanup_type_heading (Heading) ->
+    Heading1 = re:replace(Heading,
+                          "^<span class=\"attribute\">-opaque</span>\\s*",
+                          "",
+                          [{return, list}]),
+    case split_once(Heading1, " = ") of
+        {Lhs, Rhs} ->
+            case normalize_heading_text(strip_tags(Lhs)) =:= normalize_heading_text(strip_tags(Rhs)) of
+                true -> Lhs;
+                false -> cleanup_simple_self_alias(Heading1)
+            end;
+        false ->
+            cleanup_simple_self_alias(Heading1)
+    end.
+
+cleanup_simple_self_alias (Heading) ->
     case re:run(Heading, "^([a-zA-Z0-9_]+\\(\\)) = <a href=\"#t:[^\"]+\">([a-zA-Z0-9_]+)</a>\\(\\)$",
                 [{capture, [1,2], list}]) of
         {match, [Lhs, Rhs]} ->
@@ -480,11 +540,239 @@ cleanup_type_heading (Heading) ->
             Heading
     end.
 
+normalize_heading_text (Text) ->
+    string:trim(re:replace(Text, "\\s+", " ", [global, {return, list}])).
+
 split_once (Str, Sep) ->
     case string:split(Str, Sep, leading) of
         [L, R] -> {L, R};
         _ -> false
     end.
+
+normalize_type_spec_html (Html) ->
+    string:trim(re:replace(Html, "\\s+", " ", [global, {return, list}])).
+
+format_type_heading (Name, Rest) ->
+    RawSegments = [string:trim(Segment) || Segment <- split_top_level_html(Rest, $|)],
+    Segments = [pretty_type_segment(Segment) || Segment <- RawSegments],
+    case {RawSegments, Segments} of
+        {[], []} ->
+            Name;
+        {[RawOnly], [Only]} ->
+            RenderedOnly = iolists_to_string(Only),
+            case {RenderedOnly =:= RawOnly, starts_with_map(RenderedOnly)} of
+                {true, _} ->
+                    Name ++ " = " ++ RawOnly;
+                {false, true} ->
+                    Name ++ " = " ++ RenderedOnly;
+                {false, false} ->
+                    Name ++ " = <br>\n" ++ type_indent() ++ RenderedOnly
+            end;
+        {_, _} ->
+            Name ++ " = <br>\n" ++ type_indent() ++
+                iolists_to_string(join_with_separator(Segments,
+                                                      " |<br>\n" ++ type_indent()))
+    end.
+
+pretty_type_segment (Segment) ->
+    pretty_list_segment(
+      pretty_map_segment(
+        pretty_record_segment(
+          pretty_tuple_segment(string:trim(Segment))))).
+
+pretty_list_segment (Segment) ->
+    Trimmed = string:trim(Segment),
+    case maybe_list_inner(Trimmed) of
+        false ->
+            Trimmed;
+        Inner ->
+            Segments = [pretty_tuple_segment(string:trim(Item))
+                        || Item <- split_top_level_html(Inner, $|)],
+            case Segments of
+                [] ->
+                    Trimmed;
+                [_] ->
+                    Trimmed;
+                _ ->
+                    [ "["
+                    , iolists_to_string(join_with_separator(Segments,
+                                                            " |<br>\n" ++ type_indent()))
+                    , "]"
+                    ]
+            end
+    end.
+
+starts_with_map ("#{" ++ _) ->
+    true;
+starts_with_map (_) ->
+    false.
+
+pretty_record_segment (Segment) ->
+    Trimmed = string:trim(Segment),
+    case maybe_record_parts(Trimmed) of
+        false ->
+            Trimmed;
+        {Prefix, Inner} ->
+            Fields = [string:trim(Field) || Field <- split_top_level_html(Inner, $,)],
+            case Fields of
+                [] ->
+                    Trimmed;
+                [_] ->
+                    Trimmed;
+                [First | Rest] ->
+                    [ Prefix, "{<br>\n", type_indent(), First
+                    , [ [",<br>\n", type_indent(), Field] || Field <- Rest ]
+                    , "}"
+                    ]
+            end
+    end.
+
+pretty_map_segment (Segment) ->
+    Trimmed = string:trim(Segment),
+    case maybe_map_inner(Trimmed) of
+        false ->
+            Trimmed;
+        Inner ->
+            Fields = [string:trim(Field) || Field <- split_top_level_html(Inner, $,)],
+            case Fields of
+                [] ->
+                    Trimmed;
+                [_] ->
+                    Trimmed;
+                [First | Rest] ->
+                    [ "#", "{<br>\n", type_indent(), First
+                    , [ [",<br>\n", type_indent(), Field] || Field <- Rest ]
+                    , "}"
+                    ]
+            end
+    end.
+
+format_map_type_desc (Arg) ->
+    case split_assignment(Arg) of
+        {Lhs, Rhs0} ->
+            Rhs = string:trim(Rhs0),
+            case pretty_map_segment(Rhs) of
+                Pretty when Pretty =:= Rhs ->
+                    Arg;
+                Pretty ->
+                    Lhs ++ " = " ++ iolists_to_string(Pretty)
+            end;
+        false ->
+            Arg
+    end.
+
+split_assignment (Arg) ->
+    case re:run(Arg, "^\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*=\\s*[A-Za-z_][A-Za-z0-9_]*)*)\\s*=\\s*(.*)$",
+                [{capture, [1, 2], list}]) of
+        {match, [Lhs, Rhs]} ->
+            {Lhs, Rhs};
+        nomatch ->
+            false
+    end.
+
+pretty_tuple_segment (Segment) ->
+    Trimmed = string:trim(Segment),
+    case maybe_tuple_inner(Trimmed) of
+        false ->
+            Trimmed;
+        Inner ->
+            Fields = [string:trim(Field) || Field <- split_top_level_html(Inner, $,)],
+            case Fields of
+                [] ->
+                    Trimmed;
+                [_] ->
+                    Trimmed;
+                [_, _] ->
+                    Trimmed;
+                [First | Rest] ->
+                    [ "{", First
+                    , [ [",<br>\n", type_indent(), Field] || Field <- Rest ]
+                    , "}"
+                    ]
+            end
+    end.
+
+maybe_tuple_inner ("{" ++ Rest) ->
+    case lists:reverse(Rest) of
+        [$} | ReversedInner] ->
+            lists:reverse(ReversedInner);
+        _ ->
+            false
+    end;
+maybe_tuple_inner (_) ->
+    false.
+
+maybe_record_parts (Segment) ->
+    case re:run(Segment, "^(#[A-Za-z_][A-Za-z0-9_]*)\\{(.*)\\}$",
+                [dotall, ungreedy, {capture, [1,2], list}]) of
+        {match, [Prefix, Inner]} ->
+            {Prefix, Inner};
+        nomatch ->
+            false
+    end.
+
+maybe_map_inner ("#{" ++ Rest) ->
+    case lists:reverse(Rest) of
+        [$} | ReversedInner] ->
+            lists:reverse(ReversedInner);
+        _ ->
+            false
+    end;
+maybe_map_inner (_) ->
+    false.
+
+maybe_list_inner ("[" ++ Rest) ->
+    case lists:reverse(Rest) of
+        [$] | ReversedInner] ->
+            lists:reverse(ReversedInner);
+        _ ->
+            false
+    end;
+maybe_list_inner (_) ->
+    false.
+
+type_indent () ->
+    "&nbsp;&nbsp;&nbsp;".
+
+join_with_separator ([], _Sep) ->
+    [];
+join_with_separator ([Item], _Sep) ->
+    [Item];
+join_with_separator ([Item | Rest], Sep) ->
+    [Item, Sep | join_with_separator(Rest, Sep)].
+
+iolists_to_string (IoList) ->
+    lists:flatten(IoList).
+
+split_top_level_html (Str, Sep) ->
+    split_top_level_html(Str, Sep, [], [], 0, false, false).
+
+split_top_level_html ([], _Sep, Current, Acc, _Depth, _InTag, _InEntity) ->
+    lists:reverse([lists:reverse(Current) | Acc]);
+split_top_level_html ([$< | Rest], Sep, Current, Acc, Depth, false, InEntity) ->
+    split_top_level_html(Rest, Sep, [$< | Current], Acc, Depth, true, InEntity);
+split_top_level_html ([$> | Rest], Sep, Current, Acc, Depth, true, InEntity) ->
+    split_top_level_html(Rest, Sep, [$> | Current], Acc, Depth, false, InEntity);
+split_top_level_html ([$& | Rest], Sep, Current, Acc, Depth, InTag, false) ->
+    split_top_level_html(Rest, Sep, [$& | Current], Acc, Depth, InTag, true);
+split_top_level_html ([$; | Rest], Sep, Current, Acc, Depth, InTag, true) ->
+    split_top_level_html(Rest, Sep, [$; | Current], Acc, Depth, InTag, false);
+split_top_level_html ([$( | Rest], Sep, Current, Acc, Depth, InTag, InEntity) ->
+    split_top_level_html(Rest, Sep, [$( | Current], Acc, Depth + 1, InTag, InEntity);
+split_top_level_html ([$[ | Rest], Sep, Current, Acc, Depth, InTag, InEntity) ->
+    split_top_level_html(Rest, Sep, [$[ | Current], Acc, Depth + 1, InTag, InEntity);
+split_top_level_html ([${ | Rest], Sep, Current, Acc, Depth, InTag, InEntity) ->
+    split_top_level_html(Rest, Sep, [${ | Current], Acc, Depth + 1, InTag, InEntity);
+split_top_level_html ([$) | Rest], Sep, Current, Acc, Depth, InTag, InEntity) when Depth > 0 ->
+    split_top_level_html(Rest, Sep, [$) | Current], Acc, Depth - 1, InTag, InEntity);
+split_top_level_html ([$] | Rest], Sep, Current, Acc, Depth, InTag, InEntity) when Depth > 0 ->
+    split_top_level_html(Rest, Sep, [$] | Current], Acc, Depth - 1, InTag, InEntity);
+split_top_level_html ([$} | Rest], Sep, Current, Acc, Depth, InTag, InEntity) when Depth > 0 ->
+    split_top_level_html(Rest, Sep, [$} | Current], Acc, Depth - 1, InTag, InEntity);
+split_top_level_html ([Sep | Rest], Sep, Current, Acc, 0, false, false) ->
+    split_top_level_html(Rest, Sep, [], [lists:reverse(Current) | Acc], 0, false, false);
+split_top_level_html ([C | Rest], Sep, Current, Acc, Depth, InTag, InEntity) ->
+    split_top_level_html(Rest, Sep, [C | Current], Acc, Depth, InTag, InEntity).
 
 split_spec_args (WhenPart) ->
     split_spec_args(WhenPart, [], [], 0, false, false).
@@ -599,7 +887,8 @@ extract_section_inner (Html, Marker) ->
     end.
 
 normalize_text (Text) ->
-    Stripped = string:trim(Text),
+    Cleaned = re:replace(Text, "[\\x{00A0}\\x{2007}\\x{202F}]", " ", [global, unicode, {return, list}]),
+    Stripped = string:trim(Cleaned),
     Lines = string:tokens(Stripped, "\r\n"),
     string:join([string:trim(Line) || Line <- Lines, Line =/= ""], " ").
 

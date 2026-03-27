@@ -51,37 +51,47 @@ build_generates_standalone_site_test () ->
                  re:run(Text, "Standalone summary\\.", [global, {capture, all, list}])),
     ?assertMatch({match, _}, re:run(Text, "<div id=\"functions\" class=\"category\">")),
     ?assertMatch({match, _}, re:run(Text, "<div class=\"function\">")),
-    ?assertMatch({match, _}, re:run(Text, "<h3 id=\"hello/0\">sample_app:hello\\(\\) -> ok</h3>")),
+    ?assertMatch({match, _}, re:run(Text, "<h3 id=\"hello/0\">hello\\(\\) -> ok</h3>")),
     ?assertMatch({match, _}, re:run(Text, "<ul class=\"type_desc\"><li><code>Name = binary\\(\\)</code></li></ul>")),
     ?assertMatch({match, _},
                  re:run(Text,
-                        "<h3 id=\"merge/3\">sample_app:merge\\(N, List1, List2\\) -> List3</h3>")),
+                        "<h3 id=\"merge/3\">merge\\(N, List1, List2\\) -> List3</h3>")),
     ?assertMatch({match, _},
                  re:run(Text,
                         "<ul class=\"type_desc\"><li><code>N = integer\\(\\) >= 1</code></li><li><code>List1 = \\[T1\\]</code></li><li><code>List2 = \\[T2\\]</code></li><li><code>List3 = \\[T1 \\| T2\\]</code></li><li><code>T1 = T2 = term\\(\\)</code></li></ul>")),
     ?assertMatch({match, _},
                  re:run(Text,
-                        "<h3 id=\"filter/2\">sample_app:filter\\(Pred, List1\\) -> List2</h3>")),
+                        "<h3 id=\"filter/2\">filter\\(Pred, List1\\) -> List2</h3>")),
     ?assertMatch({match, _},
                  re:run(Text,
                         "<ul class=\"type_desc\"><li><code>Pred = fun\\(\\(Elem :: T\\) -> boolean\\(\\)\\)</code></li><li><code>List1 = List2 = \\[T\\]</code></li><li><code>T = term\\(\\)</code></li></ul>")),
     ?assertMatch({match, _},
                  re:run(Text,
-                        "<h3 id=\"split/2\">sample_app:split\\(N, List1\\) -> \\{List2, List3\\}</h3>")),
+                        "<h3 id=\"split/2\">split\\(N, List1\\) -> \\{List2, List3\\}</h3>")),
     ?assertMatch({match, _},
                  re:run(Text,
                         "<ul class=\"type_desc\"><li><code>N = integer\\(\\) >= 0</code></li><li><code>List1 = List2 = List3 = \\[T\\]</code></li><li><code>T = term\\(\\)</code></li></ul>")),
     ?assertMatch({match, _},
                  re:run(Text,
-                        "<h3 id=\"stats/1\">sample_app:stats\\(Item\\)</h3>")),
+                        "<h3 id=\"stats/1\">stats\\(Item\\)</h3>")),
     ?assertEqual(nomatch,
                  re:run(Text,
                         "<h3 id=\"stats/1\">.*stats\\(one\\).*stats\\(two\\).*",
                         [dotall, {capture, none}])),
     ?assertEqual(nomatch,
                  re:run(Text,
-                        "<h3 id=\"stats/1\">sample_app:stats\\(Item\\)</h3>\\s*<ul class=\"type_desc\">",
+                        "<h3 id=\"stats/1\">stats\\(Item\\)</h3>\\s*<ul class=\"type_desc\">",
                         [dotall, {capture, none}])),
+    ?assertMatch({match, _},
+                 re:run(Text,
+                        "<h3 id=\"t:option/0\">option\\(\\) = <br>\\s*&nbsp;&nbsp;&nbsp;\\{active, true \\| false \\| once\\} \\|<br>\\s*&nbsp;&nbsp;&nbsp;\\{packet,<br>\\s*&nbsp;&nbsp;&nbsp;raw,<br>\\s*&nbsp;&nbsp;&nbsp;0,<br>\\s*&nbsp;&nbsp;&nbsp;1\\}</h3>",
+                        [dotall])),
+    ?assertMatch({match, _},
+                 re:run(Text,
+                        "<h3 id=\"t:opaque_handle/0\">opaque_handle\\(\\)</h3>")),
+    ?assertMatch({match, _},
+                 re:run(Text,
+                        "<h3 id=\"t:loop_type/1\">loop_type\\(ContentType\\)</h3>")),
     ?assertEqual(nomatch, re:run(Text, "merge\\(N, List1, List2\\) -> List3\\s+when", [{capture, none}])),
     ?assertEqual(nomatch, re:run(Text, "<span class=\"attribute\">-spec</span>", [{capture, none}])),
     ?assertMatch({match, _}, re:run(IndexText, "sample_app:hello/0")),
@@ -195,6 +205,24 @@ make_html_fixture_app () ->
            "</div>"
            "<div class=\"summary-synopsis\"><p>Name type.</p></div>"
            "</div>"
+           "<div class=\"summary-row\">"
+           "<div class=\"summary-signature\">"
+           "<a href=\"#t:option/0\" data-no-tooltip=\"\" translate=\"no\">option()</a>"
+           "</div>"
+           "<div class=\"summary-synopsis\"><p>Option type.</p></div>"
+           "</div>"
+           "<div class=\"summary-row\">"
+           "<div class=\"summary-signature\">"
+           "<a href=\"#t:opaque_handle/0\" data-no-tooltip=\"\" translate=\"no\">opaque_handle()</a>"
+           "</div>"
+           "<div class=\"summary-synopsis\"><p>Opaque handle.</p></div>"
+           "</div>"
+           "<div class=\"summary-row\">"
+           "<div class=\"summary-signature\">"
+           "<a href=\"#t:loop_type/1\" data-no-tooltip=\"\" translate=\"no\">loop_type(ContentType)</a>"
+           "</div>"
+           "<div class=\"summary-synopsis\"><p>Recursive alias type.</p></div>"
+           "</div>"
            "</div>"
            "</section>"
            "<section class=\"detail\" id=\"hello/0\">"
@@ -293,6 +321,47 @@ make_html_fixture_app () ->
            "                (two) -> Two when Two :: integer().</pre>"
            "</div>"
            "<p>Multi-clause stats.</p>"
+           "</section>"
+           "</section>"
+           "<section class=\"detail\" id=\"t:option/0\">"
+           "<div class=\"detail-header\">"
+           "<div class=\"heading-with-actions\">"
+           "<h1 class=\"signature\" translate=\"no\">option()</h1>"
+           "</div>"
+           "</div>"
+           "<section class=\"docstring\">"
+           "<div class=\"specs\">"
+           "<pre translate=\"no\"><span class=\"attribute\">-type</span> option() ::\n"
+           "    {active, true | false | once} |\n"
+           "    {packet, raw, 0, 1}.</pre>"
+           "</div>"
+           "<p>Socket option type.</p>"
+           "</section>"
+           "</section>"
+           "<section class=\"detail\" id=\"t:opaque_handle/0\">"
+           "<div class=\"detail-header\">"
+           "<div class=\"heading-with-actions\">"
+           "<h1 class=\"signature\" translate=\"no\">opaque_handle()</h1>"
+           "</div>"
+           "</div>"
+           "<section class=\"docstring\">"
+           "<div class=\"specs\">"
+           "<pre translate=\"no\"><span class=\"attribute\">-opaque</span> opaque_handle().</pre>"
+           "</div>"
+           "<p>Opaque handle.</p>"
+           "</section>"
+           "</section>"
+           "<section class=\"detail\" id=\"t:loop_type/1\">"
+           "<div class=\"detail-header\">"
+           "<div class=\"heading-with-actions\">"
+           "<h1 class=\"signature\" translate=\"no\">loop_type(ContentType)</h1>"
+           "</div>"
+           "</div>"
+           "<section class=\"docstring\">"
+           "<div class=\"specs\">"
+           "<pre translate=\"no\"><span class=\"attribute\">-type</span> loop_type(ContentType) :: <a href=\"#t:loop_type/1\">loop_type</a>(ContentType).</pre>"
+           "</div>"
+           "<p>Recursive alias type.</p>"
            "</section>"
            "</section>"
            "<img src=\"assets/logo.png\"/>"

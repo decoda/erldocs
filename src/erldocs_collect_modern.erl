@@ -164,7 +164,8 @@ xpath_string (Path, Node) ->
     end.
 
 normalize_text (Text) when is_list(Text) ->
-    Stripped = string:trim(Text),
+    Cleaned = re:replace(Text, "[\\x{00A0}\\x{2007}\\x{202F}]", " ", [global, unicode, {return, list}]),
+    Stripped = string:trim(Cleaned),
     Lines = string:tokens(Stripped, "\r\n"),
     string:join([string:trim(Line) || Line <- Lines, Line =/= ""], " ");
 normalize_text (_) ->
