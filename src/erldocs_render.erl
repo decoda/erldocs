@@ -640,10 +640,11 @@ pretty_map_segment (Segment) ->
                 [_] ->
                     Trimmed;
                 [First | Rest] ->
-                    [ "#", "{<br>\n", type_indent(), First
-                    , [ [",<br>\n", type_indent(), Field] || Field <- Rest ]
-                    , "}"
-                    ]
+                    normalize_map_placeholders(
+                      [ "#", "{<br>\n", type_indent(), First
+                      , [ [",<br>\n", type_indent(), Field] || Field <- Rest ]
+                      , "<br>\n}"
+                      ])
             end
     end.
 
@@ -651,11 +652,13 @@ format_map_type_desc (Arg) ->
     case split_assignment(Arg) of
         {Lhs, Rhs0} ->
             Rhs = string:trim(Rhs0),
-            case pretty_map_segment(Rhs) of
-                Pretty when Pretty =:= Rhs ->
+            Pretty0 = pretty_map_segment(Rhs),
+            Pretty = normalize_map_placeholders(Pretty0),
+            case Pretty =:= Rhs of
+                true ->
                     Arg;
-                Pretty ->
-                    Lhs ++ " = " ++ iolists_to_string(Pretty)
+                false ->
+                    Lhs ++ " = " ++ ensure_multiline_map_closing(iolists_to_string(Pretty))
             end;
         false ->
             Arg
@@ -667,6 +670,35 @@ split_assignment (Arg) ->
         {match, [Lhs, Rhs]} ->
             {Lhs, Rhs};
         nomatch ->
+            false
+    end.
+
+normalize_map_placeholders (IoList) ->
+    Text = iolists_to_string(IoList),
+    Text1 = re:replace(Text,
+                       "(^|[\\s>;\\[{,(])_\\s*(=>|:=)",
+                       "\\1term() \\2",
+                       [global, {return, list}]),
+    re:replace(Text1,
+               "(=>|:=)\\s*_($|\\s|<|,|\\}|\\])",
+               "\\1 term()\\2",
+               [global, {return, list}]).
+
+ensure_multiline_map_closing (Text) ->
+    case {string:str(Text, "#{<br>") > 0, ends_with_multiline_map_closing(Text)} of
+        {true, false} ->
+            re:replace(Text, "\\}$", "<br>\n}", [{return, list}]);
+        _ ->
+            Text
+    end.
+
+ends_with_multiline_map_closing (Text) ->
+    Len = length(Text),
+    Suffix = "<br>\n}",
+    case Len >= length(Suffix) of
+        true ->
+            lists:sublist(Text, Len - length(Suffix) + 1, length(Suffix)) =:= Suffix;
+        false ->
             false
     end.
 
